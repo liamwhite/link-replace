@@ -8,6 +8,7 @@
 
 #include "error.h"
 #include "str-replace.h"
+#include "utils.h"
 
 void do_replace(int dirfd, char *name, char *needle, char *replacewith)
 {
@@ -15,12 +16,13 @@ void do_replace(int dirfd, char *name, char *needle, char *replacewith)
     char *newtarget = NULL;
     size_t buflen = 0;
     struct stat statbuf;
+    char *dirname = fd_to_filename(dirfd);
 
     // Avoid race conditions on the symlink by holding a fd
     int fd = openat(dirfd, name, O_PATH | O_NOFOLLOW);
 
     if (fd < 0) {
-        fprintf(stderr, "Failed to open '%s' (%s)", name, strerror(errno));
+        fprintf(stderr, "Failed to open '%s/%s' (%s)\n", dirname, name, strerror(errno));
         goto end;
     }
 
@@ -28,7 +30,7 @@ void do_replace(int dirfd, char *name, char *needle, char *replacewith)
     int status = fstatat(fd, "", &statbuf, AT_EMPTY_PATH | AT_SYMLINK_NOFOLLOW);
 
     if (status < 0) {
-        fprintf(stderr, "Failed to stat() '%s' (%s)", name, strerror(errno));
+        fprintf(stderr, "Failed to stat() '%s/%s' (%s)\n", dirname, name, strerror(errno));
         goto end;
     }
 
@@ -47,7 +49,7 @@ void do_replace(int dirfd, char *name, char *needle, char *replacewith)
     status = readlinkat(fd, "", oldtarget, buflen);
 
     if (status < 0) {
-        fprintf(stderr, "Failed to readlink() '%s' (%s)", name, strerror(errno));
+        fprintf(stderr, "Failed to readlink() '%s/%s' (%s)\n", dirname, name, strerror(errno));
         goto end;
     }
 
@@ -65,23 +67,24 @@ void do_replace(int dirfd, char *name, char *needle, char *replacewith)
         status = unlinkat(dirfd, name, 0);
 
         if (status < 0) {
-            fprintf(stderr, "Failed to unlink() '%s' (%s)", name, strerror(errno));
+            fprintf(stderr, "Failed to unlink() '%s/%s' (%s)\n", dirname, name, strerror(errno));
             goto end;
         }
 
         status = symlinkat(newtarget, dirfd, name);
 
         if (status < 0) {
-            fprintf(stderr, "Failed to symlink() '%s' (%s)", name, strerror(errno));
+            fprintf(stderr, "Failed to symlink() '%s/%s' (%s)\n", dirname, name, strerror(errno));
             goto end;
         }
 
-        printf("%s: %s -> %s\n", name, oldtarget, newtarget);
+        printf("%s/%s: %s -> %s\n", dirname, name, oldtarget, newtarget);
     }
 
 end:
 
     free(oldtarget);
     free(newtarget);
+    free(dirname);
     close(fd);
 }

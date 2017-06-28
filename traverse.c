@@ -1,12 +1,14 @@
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <fcntl.h>
-#include <string.h>
 #include <dirent.h>
+#include <fcntl.h>
+#include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 
 #include "error.h"
 #include "replace.h"
+#include "utils.h"
 
 void traverse(int dirfd, char *needle, char *replacewith)
 {
@@ -15,7 +17,9 @@ void traverse(int dirfd, char *needle, char *replacewith)
 
     // Check for error opening it
     if (open_dir == NULL) {
-        fprintf(stderr, "Error opening directory pointed to by handle %d (%s)\n", dirfd, strerror(errno));
+        char *dirname = fd_to_filename(dirfd);
+        fprintf(stderr, "Error reopening directory '%s' (%s)\n", dirname, strerror(errno));
+        free(dirname);
         return;
     }
 
@@ -33,7 +37,9 @@ void traverse(int dirfd, char *needle, char *replacewith)
                     traverse(newfd, needle, replacewith);
                     close(newfd);
                 } else {
-                    fprintf(stderr, "Error opening directory '%s' (%s)\n", ent->d_name, strerror(errno));
+                    char *dirname = fd_to_filename(dirfd);
+                    fprintf(stderr, "Error opening directory '%s/%s' (%s)\n", dirname, ent->d_name, strerror(errno));
+                    free(dirname);
                 }
 
                 break;
